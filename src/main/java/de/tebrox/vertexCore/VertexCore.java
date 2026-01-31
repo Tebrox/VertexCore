@@ -16,7 +16,7 @@ public final class VertexCore extends JavaPlugin {
 
         PluginCommand cmd = getCommand("vertexcore");
         if(cmd != null) {
-            VertexCoreCommand handler = new VertexCoreCommand(this, VertexCoreApi.get().pluginDataRegistry());
+            VertexCoreCommand handler = new VertexCoreCommand(this, VertexCoreApi.get().registry());
             cmd.setExecutor(handler);
             cmd.setTabCompleter(handler);
         }

@@ -61,7 +61,7 @@ public final class VertexCoreApi {
         return db;
     }
 
-    public PluginDataRegistry pluginDataRegistry() {
+    public PluginDataRegistry registry() {
         return registry;
     }
 

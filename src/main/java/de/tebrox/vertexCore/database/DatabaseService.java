@@ -67,15 +67,12 @@ public class DatabaseService implements Listener {
         if (entry == null) return CompletableFuture.completedFuture(null);
 
         DatabaseSettings settings = entry.settingsSupplier().get();
-        long timeout = settings.timeoutMillis();
 
-        // über Queue: serialisiert, und Timeout gilt auch hier
-        return queueFor(plugin, timeout).submit(() -> {
+        return CompletableFuture.runAsync(() -> {
             DatabaseBackend backend = backendFor(plugin, settings);
             backend.warmup();
             plugin.getLogger().info("[VertexCore] Database warmup done (" + settings.backend() + ")");
-            return null;
-        });
+        }, r -> Bukkit.getScheduler().runTaskAsynchronously(core, r));
     }
 
     @EventHandler
@@ -84,8 +81,10 @@ public class DatabaseService implements Listener {
         if(!registry.isRegistered(p.getName())) return;
 
         warmupFor(p).exceptionally(err -> {
-            p.getLogger().severe("[VertexCore] Database warmup failed: " + unwrap(err).getMessage());
-            unwrap(err).printStackTrace();
+            Throwable u = unwrap(err);
+            p.getLogger().severe("[VertexCore] Database warmup failed: " + u.getClass().getName()
+                    + (u.getMessage() != null ? " - " + u.getMessage() : ""));
+            u.printStackTrace();
             return null;
         });
     }
