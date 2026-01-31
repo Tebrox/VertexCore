@@ -6,12 +6,12 @@ public final class VertexCore extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Plugin startup logic
+        getLogger().info("VertexCore enabled.");
 
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        getLogger().info("VertexCore disabled.");
     }
 }

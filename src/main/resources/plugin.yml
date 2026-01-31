@@ -1,5 +1,5 @@
 name: VertexCore
-version: '1.0'
+version: '1.0.0-SNAPSHOT'
 main: de.tebrox.vertexCore.VertexCore
 api-version: '1.21'
 load: STARTUP
