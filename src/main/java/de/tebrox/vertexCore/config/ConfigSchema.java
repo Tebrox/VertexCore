@@ -1,8 +1,7 @@
 package de.tebrox.vertexCore.config;
 
-import de.tebrox.vertexCore.config.annotation.Comment;
-import de.tebrox.vertexCore.config.annotation.Key;
-import org.bukkit.configuration.ConfigurationSection;
+import de.tebrox.vertexCore.config.annotation.ConfigComment;
+import de.tebrox.vertexCore.config.annotation.ConfigKey;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.lang.reflect.Field;
@@ -30,7 +29,7 @@ final class ConfigSchema<T extends ConfigObject> {
         }
 
         List<String> header = new ArrayList<>();
-        Comment classComment = type.getAnnotation(Comment.class);
+        ConfigComment classComment = type.getAnnotation(ConfigComment.class);
         if(classComment != null) header.addAll(Arrays.asList(classComment.value()));
 
         T defaults = newInstanceStatic(type);
@@ -40,11 +39,11 @@ final class ConfigSchema<T extends ConfigObject> {
             if (Modifier.isStatic(f.getModifiers())) continue;
             if (Modifier.isFinal(f.getModifiers())) continue;
 
-            Key key = f.getAnnotation(Key.class);
+            ConfigKey key = f.getAnnotation(ConfigKey.class);
             if (key == null) continue;
 
             List<String> comments = new ArrayList<>();
-            Comment c = f.getAnnotation(Comment.class);
+            ConfigComment c = f.getAnnotation(ConfigComment.class);
             if (c != null) comments.addAll(Arrays.asList(c.value()));
 
             f.setAccessible(true);
