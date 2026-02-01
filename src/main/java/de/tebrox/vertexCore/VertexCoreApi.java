@@ -1,8 +1,10 @@
 package de.tebrox.vertexCore;
 
+import de.tebrox.vertexCore.command.api.CommandService;
 import de.tebrox.vertexCore.database.*;
 import de.tebrox.vertexCore.util.Async;
 import de.tebrox.vertexCore.util.AsyncQueue;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
 
 import java.util.concurrent.Executor;
@@ -19,15 +21,17 @@ public final class VertexCoreApi {
     private final Plugin corePlugin;
     private final PluginDataRegistry registry;
     private final DatabaseService db;
+    private final CommandService commands;
 
-    private VertexCoreApi(Plugin corePlugin, PluginDataRegistry registry, DatabaseService db) {
+    private VertexCoreApi(Plugin corePlugin, PluginDataRegistry registry, DatabaseService db, CommandService commands) {
         this.corePlugin = corePlugin;
         this.registry = registry;
         this.db = db;
+        this.commands = commands;
     }
 
-    public static void init(Plugin corePlugin, PluginDataRegistry registry, DatabaseService db) {
-        instance = new VertexCoreApi(corePlugin, registry, db);
+    public static void init(Plugin corePlugin, PluginDataRegistry registry, DatabaseService db, CommandService commands) {
+        instance = new VertexCoreApi(corePlugin, registry, db, commands);
     }
     public Plugin getCorePlugin() {
         return corePlugin;
@@ -65,4 +69,5 @@ public final class VertexCoreApi {
         return registry;
     }
 
+    public CommandService commands() { return commands; }
 }

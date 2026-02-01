@@ -1,0 +1,21 @@
+name: VertexCore
+version: "${version}"
+main: de.tebrox.vertexCore.VertexCore
+api-version: "1.21"
+load: STARTUP
+
+authors:
+  - Tebrox
+
+description: >
+  VertexCore is a lightweight core plugin for Paper servers that provides shared
+  infrastructure such as annotation-based configuration handling and
+  backend-agnostic data storage. It is designed to be used as a common dependency
+  by multiple plugins, avoiding duplicated config and database logic while
+  keeping APIs clean and modular.
+
+website: https://github.com/tebrox
+
+permissions:
+  vertexcore.migrate:
+    default: op
