@@ -80,6 +80,7 @@ public final class AnnotationParser {
             VPerm perm = m.getAnnotation(VPerm.class);
             if (perm != null) {
                 node.permission(perm.value());
+                node.permissionDefault(perm.def());
                 node.visibility(perm.visibility());
             }
 
@@ -100,14 +101,24 @@ public final class AnnotationParser {
 
             VRootToggle toggle = m.getAnnotation(VRootToggle.class);
             if (toggle != null) {
-                // intended for root methods; we store on root
                 root.disablePrimary(toggle.disablePrimary());
+
+                // NEW: optional path template
+                try {
+                    // falls du das Feld (disablePrimaryPath) ergänzt hast
+                    String p = toggle.disablePrimaryPath();
+                    root.disablePrimaryPathTemplate(p);
+                } catch (Throwable ignored) {
+                    // wenn du VRootToggle nicht erweitert hast, ignorieren
+                }
+
                 for (String a : toggle.aliases()) {
                     if (a == null) continue;
                     String t = a.trim();
                     if (!t.isEmpty()) root.extraAliases().add(t);
                 }
             }
+
 
             VEnabled enabled = m.getAnnotation(VEnabled.class);
             if (enabled != null) {

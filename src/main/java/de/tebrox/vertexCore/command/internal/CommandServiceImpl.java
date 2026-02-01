@@ -32,6 +32,7 @@ public final class CommandServiceImpl implements CommandService {
         Objects.requireNonNull(handler, "handler");
 
         CommandRegistry parsed = parser.parse(handler);
+        PermissionAutoRegistrar.registerFromRegistry(owner, parsed);
 
         // unique roots across plugins
         for (CommandNode root : parsed.allRoots()) {
@@ -99,7 +100,9 @@ public final class CommandServiceImpl implements CommandService {
                 String primaryLabel = rootName;
                 List<String> paperAliases = resolvedAliases;
 
-                if (root.disablePrimary()) {
+                boolean disablePrimary = resolveDisablePrimary(owner, root);
+
+                if (disablePrimary) {
                     if (paperAliases.isEmpty()) {
                         // SOFT FAIL
                         owner.getLogger().warning("[VertexCore] Command '" + rootName
@@ -163,6 +166,18 @@ public final class CommandServiceImpl implements CommandService {
         }
         return out.isEmpty() ? List.of() : new ArrayList<>(out);
     }
+
+    private boolean resolveDisablePrimary(Plugin owner, CommandNode root) {
+        String template = root.disablePrimaryPathTemplate();
+        if (template != null && !template.isBlank()) {
+            String path = template.replace("{root}", root.name());
+            NodeConfigSource src = new NodeConfigSource(root.consumerConfigClass(), root.consumerConfigFile());
+            Boolean cfg = consumerConfigReader.readBooleanOrNull(owner, src, path);
+            if (cfg != null) return cfg;
+        }
+        return root.disablePrimary();
+    }
+
 
     private static final class RootInfo {
         final Plugin owner;

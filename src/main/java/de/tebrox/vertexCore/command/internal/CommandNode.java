@@ -2,6 +2,7 @@ package de.tebrox.vertexCore.command.internal;
 
 import de.tebrox.vertexCore.command.api.VisibilityPolicy;
 import de.tebrox.vertexCore.config.ConfigObject;
+import org.bukkit.permissions.PermissionDefault;
 
 import java.lang.reflect.Method;
 import java.util.*;
@@ -14,6 +15,7 @@ public final class CommandNode {
 
     private String description;
     private String permission;
+    private PermissionDefault permissionDefault = PermissionDefault.OP;
     private VisibilityPolicy visibility = VisibilityPolicy.ALWAYS;
 
     // PlayerOnly
@@ -27,6 +29,7 @@ public final class CommandNode {
 
     // Root toggles
     private boolean disablePrimary = false;
+    private String disablePrimaryPathTemplate = "commands.{root}.disablePrimary";
     private final List<String> extraAliases = new ArrayList<>();
 
     // Enabled toggle (can be on any node)
@@ -56,6 +59,10 @@ public final class CommandNode {
     public String permission() { return permission; }
     public void permission(String permission) { this.permission = permission; }
 
+    public PermissionDefault permissionDefault() { return permissionDefault; }
+
+    public void permissionDefault(PermissionDefault def) { if(def != null) this.permissionDefault = def; }
+
     public VisibilityPolicy visibility() { return visibility; }
     public void visibility(VisibilityPolicy visibility) { this.visibility = visibility; }
 
@@ -76,6 +83,10 @@ public final class CommandNode {
 
     public boolean disablePrimary() { return disablePrimary; }
     public void disablePrimary(boolean v) { this.disablePrimary = v; }
+
+    public String disablePrimaryPathTemplate() { return disablePrimaryPathTemplate; }
+
+    public void disablePrimaryPathTemplate(String template) { this.disablePrimaryPathTemplate = (template == null || template.isBlank()) ? null : template.trim(); }
 
     public List<String> extraAliases() { return extraAliases; }
 

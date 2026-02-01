@@ -5,6 +5,7 @@ import de.tebrox.vertexCore.command.VertexCoreCommand;
 import de.tebrox.vertexCore.command.internal.CommandServiceImpl;
 import de.tebrox.vertexCore.database.DatabaseService;
 import de.tebrox.vertexCore.database.PluginDataRegistry;
+import de.tebrox.vertexCore.util.Timeouts;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -35,6 +36,8 @@ public final class VertexCore extends JavaPlugin {
     @Override
     public void onDisable() {
         if(this.commandService != null) this.commandService.shutdown();
+        VertexCoreApi.get().databaseService().closeAll();
+        Timeouts.shutdown();
 
         getLogger().info("VertexCore disabled.");
     }

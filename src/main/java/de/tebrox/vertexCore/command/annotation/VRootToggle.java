@@ -10,4 +10,6 @@ import java.lang.annotation.Target;
 public @interface VRootToggle {
     boolean disablePrimary() default false;
     String[] aliases() default {};
+
+    String disablePrimaryPath() default "commands.{root}.disablePrimary";
 }
