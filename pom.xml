@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>de.tebrox</groupId>
-    <artifactId>vertexcore</artifactId>
-    <version>1.2.0-SNAPSHOT</version>
+    <artifactId>vertexCore</artifactId>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>vertexCore</name>
