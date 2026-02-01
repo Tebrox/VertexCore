@@ -2,6 +2,7 @@ package de.tebrox.vertexCore.config;
 
 import de.tebrox.vertexCore.config.annotation.ConfigComment;
 import de.tebrox.vertexCore.config.annotation.ConfigKey;
+import de.tebrox.vertexCore.config.annotation.ConfigSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.lang.reflect.Field;
@@ -11,7 +12,7 @@ import java.util.logging.Logger;
 
 final class ConfigSchema<T extends ConfigObject> {
 
-    record Entry(String path, Field field, List<String> comments, Object defaultValue) {}
+    record Entry(String path, List<Field> accessChain, Field field, List<String> comments, Object defaultValue) {}
 
     private final Class<T> type;
     private final List<Entry> entries;
@@ -24,39 +25,21 @@ final class ConfigSchema<T extends ConfigObject> {
     }
 
     static <T extends ConfigObject> ConfigSchema<T> of(Class<T> type) {
-        if(!ConfigObject.class.isAssignableFrom(type)) {
+        if (!ConfigObject.class.isAssignableFrom(type)) {
             throw new IllegalArgumentException(type.getName() + " must implement ConfigObject");
         }
 
         List<String> header = new ArrayList<>();
         ConfigComment classComment = type.getAnnotation(ConfigComment.class);
-        if(classComment != null) header.addAll(Arrays.asList(classComment.value()));
+        if (classComment != null) header.addAll(Arrays.asList(classComment.value()));
 
         T defaults = newInstanceStatic(type);
 
         List<Entry> list = new ArrayList<>();
-        for (Field f : type.getDeclaredFields()) {
-            if (Modifier.isStatic(f.getModifiers())) continue;
-            if (Modifier.isFinal(f.getModifiers())) continue;
+        collectEntries(defaults, type, "", new ArrayList<>(), new ArrayDeque<>(), list);
 
-            ConfigKey key = f.getAnnotation(ConfigKey.class);
-            if (key == null) continue;
-
-            List<String> comments = new ArrayList<>();
-            ConfigComment c = f.getAnnotation(ConfigComment.class);
-            if (c != null) comments.addAll(Arrays.asList(c.value()));
-
-            f.setAccessible(true);
-
-            Object defVal;
-            try {
-                defVal = f.get(defaults);
-            } catch (IllegalAccessException ex) {
-                throw new RuntimeException(ex);
-            }
-
-            list.add(new Entry(key.value(), f, comments, defVal));
-        }
+        // Optional: detect duplicate keys (helps when scanning nested settings)
+        detectDuplicates(list);
 
         list.sort(Comparator.comparing(Entry::path));
         return new ConfigSchema<>(type, List.copyOf(list), List.copyOf(header));
@@ -86,7 +69,8 @@ final class ConfigSchema<T extends ConfigObject> {
                 Object converted = convert(raw, ft);
                 if (converted != null || raw == null) {
                     // allow explicit nulls
-                    field.set(instance, converted);
+                    Object target = resolveTarget(instance, e);
+                    field.set(target, converted);
                 } else {
                     log.warning("[VertexCore Config] Cannot convert '" + e.path() + "' value '" + raw + "' to " + ft.getSimpleName());
                 }
@@ -98,7 +82,8 @@ final class ConfigSchema<T extends ConfigObject> {
 
     Object readFieldValue(T instance, Entry e) {
         try {
-            return e.field().get(instance);
+            Object target = resolveTarget(instance, e);
+            return e.field().get(target);
         } catch (IllegalAccessException ex) {
             throw new RuntimeException(ex);
         }
@@ -106,7 +91,8 @@ final class ConfigSchema<T extends ConfigObject> {
 
     void writeFieldValue(T instance, Entry e, Object value) {
         try {
-            e.field().set(instance, value);
+            Object target = resolveTarget(instance, e);
+            e.field().set(target, value);
         } catch (IllegalAccessException ex) {
             throw new RuntimeException(ex);
         }
@@ -118,6 +104,154 @@ final class ConfigSchema<T extends ConfigObject> {
 
     List<Entry> entries() { return entries; }
     List<String> headerComments() { return headerComments; }
+
+    // ---------------- nested scanning ----------------
+
+    /**
+     * Collects entries recursively.
+     *
+     * ConfigSection resolution (both supported):
+     *   FIELD @ConfigSection > TYPE @ConfigSection > inheritedPrefix
+     */
+    private static void collectEntries(
+            Object defaultsObj,
+            Class<?> currentType,
+            String inheritedPrefix,
+            List<Field> accessChain,
+            ArrayDeque<Class<?>> stack,
+            List<Entry> out
+    ) {
+        // cycle protection
+        if (stack.contains(currentType)) return;
+        stack.push(currentType);
+
+        for (Field f : currentType.getDeclaredFields()) {
+            if (Modifier.isStatic(f.getModifiers())) continue;
+            if (Modifier.isFinal(f.getModifiers())) continue;
+
+            f.setAccessible(true);
+
+            // Leaf entry: @ConfigKey on this field
+            ConfigKey key = f.getAnnotation(ConfigKey.class);
+            if (key != null) {
+                List<String> comments = new ArrayList<>();
+                ConfigComment c = f.getAnnotation(ConfigComment.class);
+                if (c != null) comments.addAll(Arrays.asList(c.value()));
+
+                Object defVal;
+                try {
+                    defVal = f.get(defaultsObj);
+                } catch (IllegalAccessException ex) {
+                    throw new RuntimeException(ex);
+                }
+
+                out.add(new Entry(join(inheritedPrefix, key.value()), List.copyOf(accessChain), f, comments, defVal));
+                continue;
+            }
+
+            // Nested object: recurse if it looks like a settings POJO
+            if (!isNestable(f.getType())) continue;
+
+            // Prefix resolution: FIELD > TYPE > inherited
+            String nestedPrefix;
+            ConfigSection fieldSection = f.getAnnotation(ConfigSection.class);
+            if (fieldSection != null) {
+                nestedPrefix = join(inheritedPrefix, fieldSection.value());
+            } else {
+                ConfigSection typeSection = f.getType().getAnnotation(ConfigSection.class);
+                if (typeSection != null) {
+                    nestedPrefix = join(inheritedPrefix, typeSection.value());
+                } else {
+                    nestedPrefix = inheritedPrefix;
+                }
+            }
+
+            Object nestedDefaults;
+            try {
+                nestedDefaults = f.get(defaultsObj);
+                if (nestedDefaults == null) {
+                    nestedDefaults = newInstancePojoOrNull(f.getType());
+                    if (nestedDefaults == null) continue; // cannot instantiate -> skip recursion
+                    f.set(defaultsObj, nestedDefaults);
+                }
+            } catch (Exception ignored) {
+                continue;
+            }
+
+            List<Field> nestedChain = new ArrayList<>(accessChain);
+            nestedChain.add(f);
+
+            collectEntries(nestedDefaults, f.getType(), nestedPrefix, nestedChain, stack, out);
+        }
+
+        stack.pop();
+    }
+
+    private Object resolveTarget(T root, Entry e) {
+        Object cur = root;
+
+        for (Field step : e.accessChain()) {
+            try {
+                Object nxt = step.get(cur);
+                if (nxt == null) {
+                    Object created = newInstancePojoOrNull(step.getType());
+                    if (created == null) {
+                        throw new IllegalStateException("Cannot instantiate nested config object: " + step.getType().getName());
+                    }
+                    step.set(cur, created);
+                    nxt = created;
+                }
+                cur = nxt;
+            } catch (IllegalAccessException ex) {
+                throw new RuntimeException("Failed to resolve nested config path for " + e.path(), ex);
+            }
+        }
+
+        return cur;
+    }
+
+    private static boolean isNestable(Class<?> t) {
+        if (t.isPrimitive()) return false;
+        if (t.isEnum()) return false;
+
+        if (t == String.class) return false;
+        if (t == Boolean.class) return false;
+        if (Number.class.isAssignableFrom(t)) return false;
+
+        if (List.class.isAssignableFrom(t)) return false;
+        if (Map.class.isAssignableFrom(t)) return false;
+
+        // Treat everything else as nested POJO settings object
+        return true;
+    }
+
+    private static Object newInstancePojoOrNull(Class<?> type) {
+        try {
+            return type.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
+    }
+
+    private static String join(String prefix, String key) {
+        if (prefix == null || prefix.isBlank()) return key;
+        if (key == null || key.isBlank()) return prefix;
+        return prefix + "." + key;
+    }
+
+    private static void detectDuplicates(List<Entry> entries) {
+        Map<String, Entry> seen = new HashMap<>();
+        for (Entry e : entries) {
+            Entry prev = seen.putIfAbsent(e.path(), e);
+            if (prev != null) {
+                throw new IllegalStateException("Duplicate config key detected: '" + e.path() + "' (fields: "
+                        + prev.field().getDeclaringClass().getName() + "#" + prev.field().getName()
+                        + " and "
+                        + e.field().getDeclaringClass().getName() + "#" + e.field().getName()
+                        + ")");
+            }
+        }
+    }
 
     // ---------------- conversion ----------------
 
